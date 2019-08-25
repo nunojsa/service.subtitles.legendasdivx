@@ -27,6 +27,7 @@ import cookielib
 import urllib2
 import uuid
 import socket
+import subprocess
 
 _addon = xbmcaddon.Addon()
 _author     = _addon.getAddonInfo('author')
@@ -398,6 +399,7 @@ def recursive_glob(treeroot, pattern):
 
 def Download(id, filename):
     """Called when subtitle download request from XBMC."""
+    rar_archive = False
     # Cleanup temp dir, we recomend you download/unzip your subs in temp folder and
     # pass that to XBMC to copy and activate
     if os.path.isdir(_temp):shutil.rmtree(_temp)
@@ -430,6 +432,7 @@ def Download(id, filename):
         if header == 'Rar!':
             local_tmp_file = pjoin(_newtemp, str(uuid.uuid4())+".rar")
             packed = True
+            rar_archive = True
         elif header == 'PK':
             local_tmp_file = pjoin(_newtemp, str(uuid.uuid4())+".zip")
             packed = True
@@ -448,9 +451,7 @@ def Download(id, filename):
             xbmc.sleep(500)
         except: log(u"Failed to save subtitles to '%s'" % (local_tmp_file,))
         if packed:
-            xbmc.executebuiltin("XBMC.Extract(%s, %s)" % (local_tmp_file.encode("utf-8"), _newtemp))
-            xbmc.sleep(1000)
-
+            extract(local_tmp_file, _newtemp, rar_archive)
             ## IF EXTRACTION FAILS, WHICH HAPPENS SOMETIMES ... BUG?? ... WE WILL BROWSE THE RAR FILE FOR MANUAL EXTRACTION ##
             searchsubs = recursive_glob(_newtemp, SUB_EXTS)
             searchsubscount = len(searchsubs)
@@ -500,6 +501,15 @@ def Download(id, filename):
                             break
         else: subtitles_list.append(subs_file)
     return subtitles_list
+
+def extract(archive, extract_to, rar_archive):
+    log('Extract %s to %s' % (archive, extract_to))
+
+    if rar_archive:
+        cmd = "unrar e {0} {1}/".format(archive, extract_to)
+        subprocess.call(cmd, shell=True)
+    else:
+        xbmc.executebuiltin(('XBMC.Extract("{0}","{1}")'.format(archive, extract_to,)), True)
 
 def normalizeString(str):
     return unicodedata.normalize('NFKD', unicode(unicode(str, 'utf-8'))).encode('ascii', 'ignore')
